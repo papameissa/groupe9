@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>📈 Statistiques - Mon Journal d'Humeur</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>📈 Statistiques de mes Humeurs</h1>
+            <p class="subtitle">Visualisez vos tendances émotionnelles</p>
+            <nav>
+                <a href="{{ url_for('index') }}" class="nav-link">Accueil</a>
+                <a href="{{ url_for('stats') }}" class="nav-link active">Statistiques</a>
+            </nav>
+        </header>
+
+        <div class="stats-container">
+            <div class="stat-card">
+                <h3>Total d'entrées</h3>
+                <div class="stat-number" id="total-moods">{{ moods|length }}</div>
+            </div>
+
+            <div class="chart-section">
+                <h2>Répartition de mes humeurs</h2>
+                <canvas id="moodChart"></canvas>
+            </div>
+
+            <div class="chart-section">
+                <h2>Évolution sur les derniers jours</h2>
+                <canvas id="timelineChart"></canvas>
+            </div>
+
+            {% if moods %}
+            <div class="insights">
+                <h2>🎯 Insights</h2>
+                <div class="insight-cards">
+                    <div class="insight-card">
+                        <span class="insight-emoji">📅</span>
+                        <span class="insight-text">Vous avez enregistré votre humeur pendant <strong>{{ moods|length }}</strong> jours</span>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+
+    
+
+    <script>
+        // Récupérer les données
+        fetch('/api/mood_stats')
+            .then(response => response.json())
+            .then(data => {
+                // Graphique en camembert pour la répartition des humeurs
+                const moodCtx = document.getElementById('moodChart').getContext('2d');
+                const moodLabels = Object.keys(data.mood_count);
+                const moodData = Object.values(data.mood_count);
+                
+                new Chart(moodCtx, {
+                    type: 'doughnut',
+                    data: {
+                        labels: moodLabels,
+                        datasets: [{
+                            data: moodData,
+                            backgroundColor: [
+                                '#FFD93D',
+                                '#6BCB77',
+                                '#4D96FF',
+                                '#FF6B6B',
+                                '#A084DC',
+                                '#FFA500'
+                            ]
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                position: 'bottom',
+                                labels: {
+                                    font: {
+                                        size: 16
+                                    }
+                                }
+                            }
+                        }
+                    }
+                });
+
+                // Graphique de ligne pour l'évolution temporelle
+                const timelineCtx = document.getElementById('timelineChart').getContext('2d');
+                const dates = Object.keys(data.daily_moods).sort();
+                const counts = dates.map(date => data.daily_moods[date].length);
+                
+                new Chart(timelineCtx, {
+                    type: 'line',
+                    data: {
+                        labels: dates,
+                        datasets: [{
+                            label: 'Nombre d\'entrées par jour',
+                            data: counts,
+                            borderColor: '#6BCB77',
+                            backgroundColor: 'rgba(107, 203, 119, 0.1)',
+                            tension: 0.4,
+                            fill: true
+                        }]
+                    },
+                    options: {
+                        responsive: true,
+                        plugins: {
+                            legend: {
+                                display: false
+                            }
+                        },
+                        scales: {
+                            y: {
+                                beginAtZero: true,
+                                ticks: {
+                                    stepSize: 1
+                                }
+                            }
+                        }
+                    }
+                });
+            });
+    </script>
+</body>
+</html>
