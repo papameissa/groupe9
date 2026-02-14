@@ -111,5 +111,5 @@ jobs:
           sleep 10
           
           # Check if the application is responding
-          curl -f http://${HOST}:5000 || exit 1
+          curl -f http://${HOST}:5009 || exit 1
           echo "Deployment successful!"
