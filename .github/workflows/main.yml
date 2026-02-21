@@ -33,11 +33,33 @@ jobs:
 
       - name: Install dependencies and run app
         run: |
-          ssh $EC2_USER@$EC2_HOST << EOF
-          cd /home/ubuntu/${{ github.repository }}
-          python3 -m venv venv
+          ssh $EC2_USER@$EC2_HOST << 'EOF'
+
+          APP_DIR=/home/$EC2_USER/groupe9
+          LOG_DIR=$APP_DIR/logs
+
+          cd $APP_DIR
+
+          # créer dossier logs persistant
+          mkdir -p $LOG_DIR
+
+          # créer venv seulement s'il n'existe pas
+          if [ ! -d "venv" ]; then
+            python3 -m venv venv
+          fi
+
+          # installer dépendances
           venv/bin/pip install -r requirements.txt
-          nohup venv/bin/python run.py > app.log 2>&1 &
+
+          # arrêter ancienne app
+          pkill -f run.py || true
+
+          # lancer application avec vrai log serveur
+          nohup venv/bin/python run.py >> $LOG_DIR/app.log 2>&1 &
+
+          echo "Application démarrée, logs disponibles ici:"
+          echo "$LOG_DIR/app.log"
+
           EOF
         env:
           EC2_USER: ${{ secrets.EC2_USER }}
