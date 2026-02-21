@@ -10,6 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+
       # 1️⃣ Récupérer le code
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -49,7 +50,8 @@ jobs:
       - name: Install dependencies and run app
         run: |
           ssh -i ~/.ssh/id_rsa $EC2_USER@$EC2_HOST << 'EOF'
-          APP_DIR=/home/$EC2_USER/groupe9
+
+          APP_DIR=/home/ubuntu/groupe9
           LOG_FILE=$APP_DIR/app.log
 
           cd $APP_DIR
@@ -66,8 +68,13 @@ jobs:
           # Mettre à jour pip
           venv/bin/pip install --upgrade pip
 
-          # Installer dépendances
-          venv/bin/pip install -r requirements.txt
+          # Installer Flask explicitement
+          venv/bin/pip install Flask
+
+          # Installer les autres dépendances
+          if [ -f requirements.txt ]; then
+            venv/bin/pip install -r requirements.txt
+          fi
 
           # Arrêter ancienne application si elle tourne
           pkill -f "python.*app.py" || true
@@ -77,6 +84,7 @@ jobs:
 
           echo "Application démarrée"
           echo "Logs disponibles ici : $LOG_FILE"
+
           EOF
         env:
           EC2_USER: ${{ secrets.EC2_USER }}
