@@ -10,11 +10,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1️⃣ Récupérer le projet
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Configurer SSH
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
@@ -25,60 +23,21 @@ jobs:
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
           EC2_HOST: ${{ secrets.EC2_HOST }}
 
-      # 3️⃣ Préparer dossier serveur propre (garde les logs)
-      - name: Prepare server directory
+      - name: Copy project to EC2 (SCP)
         run: |
-          ssh -i ~/.ssh/id_rsa $EC2_USER@$EC2_HOST << 'EOF'
-          APP_DIR=/home/$EC2_USER/groupe9
-
-          mkdir -p $APP_DIR
-          mkdir -p $APP_DIR/logs
-
-          # supprimer ancien code mais garder logs
-          find $APP_DIR -mindepth 1 ! -name logs -exec rm -rf {} +
-          EOF
+          ssh -i ~/.ssh/id_rsa $EC2_USER@$EC2_HOST "mkdir -p /home/$EC2_USER/groupe9"
+          scp -i ~/.ssh/id_rsa -r ./ $EC2_USER@$EC2_HOST:/home/$EC2_USER/groupe9
         env:
           EC2_USER: ${{ secrets.EC2_USER }}
           EC2_HOST: ${{ secrets.EC2_HOST }}
 
-      # 4️⃣ Upload propre (sans .git et sans venv)
-      - name: Upload application
-        run: |
-          rsync -avz --exclude '.git' --exclude 'venv' \
-          -e "ssh -i ~/.ssh/id_rsa" ./ \
-          $EC2_USER@$EC2_HOST:/home/$EC2_USER/groupe9
-        env:
-          EC2_USER: ${{ secrets.EC2_USER }}
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-
-      # 5️⃣ Installation + lancement
       - name: Install dependencies and run app
         run: |
-          ssh -i ~/.ssh/id_rsa $EC2_USER@$EC2_HOST << 'EOF'
-
-          APP_DIR=/home/$EC2_USER/groupe9
-          LOG_DIR=$APP_DIR/logs
-
-          cd $APP_DIR
-
-          # créer venv si inexistant
-          if [ ! -d "venv" ]; then
-            python3 -m venv venv
-          fi
-
-          # installer dépendances
-          venv/bin/pip install --upgrade pip
+          ssh $EC2_USER@$EC2_HOST << EOF
+          cd /home/ubuntu/${{ github.repository }}
+          python3 -m venv venv
           venv/bin/pip install -r requirements.txt
-
-          # arrêter ancienne application
-          pkill -f run.py || true
-
-          # lancer application avec logs persistants
-          nohup venv/bin/python run.py >> $LOG_DIR/app.log 2>&1 &
-
-          echo "Application démarrée"
-          echo "Logs disponibles : $LOG_DIR/app.log"
-
+          nohup venv/bin/python run.py > app.log 2>&1 &
           EOF
         env:
           EC2_USER: ${{ secrets.EC2_USER }}
