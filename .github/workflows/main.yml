@@ -10,12 +10,9 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-
-      # 1️⃣ Récupérer le code
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # 2️⃣ Configuration SSH
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
@@ -26,65 +23,20 @@ jobs:
           EC2_SSH_KEY: ${{ secrets.EC2_SSH_KEY }}
           EC2_HOST: ${{ secrets.EC2_HOST }}
 
-      # 3️⃣ Copier projet vers EC2
-      - name: Copy project to EC2
+      - name: Copy project to EC2 (SCP)
         run: |
-          ssh -i ~/.ssh/id_rsa $EC2_USER@$EC2_HOST "mkdir -p /home/$EC2_USER/groupe9"
-          scp -i ~/.ssh/id_rsa -r ./ $EC2_USER@$EC2_HOST:/home/$EC2_USER/groupe9
+          scp -i ~/.ssh/id_rsa -r ./ $EC2_USER@$EC2_HOST:/home/ubuntu/${{ github.repository }}
         env:
           EC2_USER: ${{ secrets.EC2_USER }}
           EC2_HOST: ${{ secrets.EC2_HOST }}
 
-      # 4️⃣ Préparer serveur (installer python + venv si absent)
-      - name: Prepare EC2 (install python & venv)
-        run: |
-          ssh -i ~/.ssh/id_rsa $EC2_USER@$EC2_HOST << 'EOF'
-          sudo apt update
-          sudo apt install -y python3 python3-venv python3-pip
-          EOF
-        env:
-          EC2_USER: ${{ secrets.EC2_USER }}
-          EC2_HOST: ${{ secrets.EC2_HOST }}
-
-      # 5️⃣ Installer dépendances + lancer app
       - name: Install dependencies and run app
         run: |
-          ssh -i ~/.ssh/id_rsa $EC2_USER@$EC2_HOST << 'EOF'
-
-          APP_DIR=/home/ubuntu/groupe9
-          LOG_FILE=$APP_DIR/app.log
-
-          cd $APP_DIR
-
-          # Supprimer ancien venv cassé
-          rm -rf venv
-
-          # Créer environnement virtuel
+          ssh $EC2_USER@$EC2_HOST << EOF
+          cd /home/ubuntu/${{ github.repository }}
           python3 -m venv venv
-
-          # S'assurer que pip fonctionne
-          venv/bin/python -m ensurepip --upgrade
-
-          # Mettre à jour pip
-          venv/bin/pip install --upgrade pip
-
-          # Installer Flask explicitement
-          venv/bin/pip install Flask
-
-          # Installer les autres dépendances
-          if [ -f requirements.txt ]; then
-            venv/bin/pip install -r requirements.txt
-          fi
-
-          # Arrêter ancienne application si elle tourne
-          pkill -f "python.*app.py" || true
-
-          # Lancer application en arrière-plan
-          nohup venv/bin/python app.py > $LOG_FILE 2>&1 &
-
-          echo "Application démarrée"
-          echo "Logs disponibles ici : $LOG_FILE"
-
+          venv/bin/pip install -r requirements.txt
+          nohup venv/bin/python run.py > app.log 2>&1 &
           EOF
         env:
           EC2_USER: ${{ secrets.EC2_USER }}
